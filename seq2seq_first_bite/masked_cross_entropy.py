@@ -16,8 +16,11 @@ def sequence_mask(sequence_length, max_len=None):
     return seq_range_expand < seq_length_expand
 
 
-def masked_cross_entropy(logits, target, length):
-    length = Variable(torch.LongTensor(length)).cuda()
+def masked_cross_entropy(logits, target, length, use_cuda=True):
+    length = Variable(torch.LongTensor(length))
+    
+    if use_cuda:
+        length = length.cuda()
 
     """
     Args:
