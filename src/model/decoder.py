@@ -52,7 +52,7 @@ class BahdanauAttnDecoderRNN(nn.Module):
                 
         # self._detach_hidden([hidden, sentence_vectors, sentence_idx, sentence_attn_weights])
         
-        return output, hidden, word_attn_weights, sentence_attn_weights
+        return output, hidden, sentence_attn_weights
     
     def _detach_hidden(self, hidden):
         if type(hidden) == Variable:
