@@ -15,7 +15,6 @@ class Dataloader(object):
        #self.batch_size = opt.batch_size
         self.train_data = None 
         self.test_data = None
-        #self.sos_token = opt.sos
         self.data_dir = opt.traindata
         self.test_data_dir = opt.testdata
         self.vocab =  None
@@ -99,7 +98,7 @@ class Dataloader(object):
     @staticmethod
     def sen_idx_postprocess(batch):
         # split at <sos> tokens
-        sentences_batch = [[self.sos_token + sen for sen in example.split(self.sos_token)][1:] for example in batch]
+        sentences_batch = [[SOS_TOKEN + sen for sen in example.split(SOS_TOKEN)][1:] for example in batch]
         # tokenized batch is now a list[list[sentences]]
         max_num_sens = max([len(ex) for ex in sentences_batch])
 
