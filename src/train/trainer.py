@@ -6,7 +6,7 @@ from torch import optim
 import numpy as np
 
 
-def Trainor(object):
+def Trainer(object):
     def __init__(self, opt, optimizer=optim.Adam):
         self.loader = Dataloader(opt)
         self.model = opt.model
@@ -47,10 +47,10 @@ def Trainor(object):
                 input_batch, max_input_length, tgt_batch, max_tgt_length, sen_vecs, sen_idxs = utils.parse_batch(batch, use_cuda=self.use_cuda)
                 
                 # run forward pass over model
-                decoder_output = self.model(input_batch, max_input_length, tgt_batch, max_tgt_length, sen_vecs, sen_idxs)
+                model_output = self.model(input_batch, max_input_length, tgt_batch, max_tgt_length, sen_vecs, sen_idxs)
                 
                 # get loss
-                loss = masked_cross_entropy(decoder_output.transpose(0, 1).contiguous(), # -> batch x seq
+                loss = masked_cross_entropy(model_output.transpose(0, 1).contiguous(), # -> batch x seq
                                             tgt_batch.transpose(0, 1).contiguous(), # -> batch x seq
                                             max_tgt_length)
                 
@@ -67,5 +67,7 @@ def Trainor(object):
                 # update parameters
                 for optimizer in optimzers:
                     optimizer.step()
+                    
+                print ('loss:', loss.data[0])
                     
                 
