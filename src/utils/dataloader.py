@@ -8,7 +8,7 @@ import pickle
 import dill
 
 class Dataloader(object):
-    def __init__(self, opt, eval):
+    def __init__(self, opt):
         self.cuda = opt.cuda
        #self.batch_size = opt.batch_size
         self.train_data = None 

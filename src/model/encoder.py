@@ -19,16 +19,14 @@ class EncoderRNN(nn.Module):
 
         self.gru = nn.GRU(hidden_size, hidden_size, n_layers, dropout=self.dropout, bidirectional=True)
         
-    def forward(self, input_seqs, input_lengths, hidden=None):
-#         if type(input_seqs) == list:
-#             print('List: ', len(input_seqs))
-#         else:
-#             print('np array', input_seqs.shape)
+    def forward(self, input_seqs, hidden=None):
         # Note: we run this all at once (over multiple batches of multiple sequences)
         embedded = self.embedding(input_seqs)
 
         outputs, hidden = self.gru(embedded, hidden)
 
         outputs = outputs[:, :, :self.hidden_size] + outputs[:, : ,self.hidden_size:] # Sum bidirectional outputs
-        hidden.detach_() ####
+        
+        #hidden.detach_() ####
+        
         return outputs, hidden
