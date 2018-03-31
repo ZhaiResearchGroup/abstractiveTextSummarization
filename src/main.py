@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from torch import cuda
-from utils.dataset import Dataset
+from utils.dataloader import Dataloader
 
 
 ## Data options
@@ -27,5 +27,5 @@ opt = parser.parse_args()
 
 opt.cuda = (opt.gpu != -1)
 
-dataset = Dataset(opt, False)
-print(type(dataset.train_data))
+dataloader = Dataloader(opt)
+print(type(dataloader.train_data))

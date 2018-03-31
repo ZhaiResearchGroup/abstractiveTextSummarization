@@ -6,6 +6,8 @@ import csv
 import os
 import pickle
 import dill
+from utils.sent2vec import Sent2vec
+import config.constants
 
 class Dataloader(object):
     def __init__(self, opt):
@@ -13,7 +15,6 @@ class Dataloader(object):
        #self.batch_size = opt.batch_size
         self.train_data = None 
         self.test_data = None
-        self.sos_token = opt.sos
         self.data_dir = opt.traindata
         self.test_data_dir = opt.testdata
         self.vocab =  None
@@ -39,11 +40,14 @@ class Dataloader(object):
                                                                         ('sen_idx', SEN_IDX)])
         self.vocab = TEXT.build_vocab(self.train_data, vectors="glove.6B.100d", max_size=self.max_vocab_size)
         
-    def get_batch_iterator(self, is_train=True):
-        data = self.train_data if is_train  else  self.test_data
+    def get_batch_iterator(self, is_train=True, shuffle=True, repeat=False):
+        dataset = self.train_data if is_train  else  self.test_data
         
-        dataset_iter = data.BucketIterator(data, batch_size=self.batch_size, device=-1*int(not self.cuda), 
-                                           sort_key=lambda x: len(x.story), train=is_train, shuffle=shuffle, repeat=repeat, sort= not is_train)
+        dataset_iter = data.BucketIterator(dataset, batch_size=self.batch_size,
+                                           device=-1*int(not self.cuda),
+                                           sort_key=lambda x: len(x.story),
+                                           train=is_train, shuffle=shuffle,
+                                           repeat=repeat, sort=(not is_train))
         
         dataset_iter.create_batches()
         
@@ -62,7 +66,7 @@ class Dataloader(object):
     def sen_vec_postprocess(batch):
 
         # split at <sos> tokens
-        tokenized_batch = [[self.sos_token + sen for sen in example.split(self.sos_token)][1:] for example in batch]
+        tokenized_batch = [[SOS_TOKEN + sen for sen in example.split(SOS_TOKEN)][1:] for example in batch]
         # tokenized batch is now a list[list[sentences]]
 
         # maximum length of any document (in number of sentences)
@@ -73,7 +77,7 @@ class Dataloader(object):
         for i, example in enumerate(tokenized_batch):
             # length of this example tells us how much we need to leave as padding on the end
             for j in range(len(example)):
-                batch_vec[i,:] = np.array(sent2vec.infer_vector(example[j]))
+                batch_vec[i,:] = np.array(sent2vec.infer_vector(tokenized_batch))
 
         # return as cuda var
         tensor = torch.FloatTensor(batch_vec)
@@ -94,7 +98,7 @@ class Dataloader(object):
     @staticmethod
     def sen_idx_postprocess(batch):
         # split at <sos> tokens
-        sentences_batch = [[self.sos_token + sen for sen in example.split(self.sos_token)][1:] for example in batch]
+        sentences_batch = [[SOS_TOKEN + sen for sen in example.split(SOS_TOKEN)][1:] for example in batch]
         # tokenized batch is now a list[list[sentences]]
         max_num_sens = max([len(ex) for ex in sentences_batch])
 
@@ -120,9 +124,3 @@ class Dataloader(object):
             return torch.autograd.Variable(torch.LongTensor(sen_idxs).cuda())
         else:
             return torch.autograd.Variable(torch.LongTensor(sen_idxs))
-
-if __name__ == '__main__':
-    dataset = Dataset()  # Default values are good
-    pdb.set_trace()
-    
-        
