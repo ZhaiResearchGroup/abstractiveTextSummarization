@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
+from ..utils.dataset import parse_batch
 
 class Seq2Seq(nn.Module):
     def __init__(self,  opt):
@@ -184,7 +185,6 @@ class Seq2Seq(nn.Module):
             #self.detach_hidden(decoder_hidden)
         preds = torch.LongTensor(preds)
         return preds
-
 
     def detach_hidden(self, hidden):
         """ Wraps hidden states in new Variables, to detach them from their history. Prevent OOM.

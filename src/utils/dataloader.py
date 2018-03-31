@@ -7,27 +7,29 @@ import os
 import pickle
 import dill
 
-class Dataset(object):
+class Dataloader(object):
     def __init__(self, opt, eval):
         self.cuda = opt.cuda
        #self.batch_size = opt.batch_size
         self.train_data = None 
+        self.test_data = None
         self.sos_token = opt.sos
         self.data_dir = opt.traindata
-        self.processed_data = opt.processeddata
+        self.test_data_dir = opt.testdata
+        self.vocab =  None
+        self.max_vocab_size = opt.vocab_size
+        self.batch_size = opt.batch_size
+        
         self.load_data()
         
     def load_data(self):
-        if os.path.isfile(self.processed_data):
-            self.train_data = pickle.load(self.processed_data)
-            return
         TEXT = data.Field(sequential=True, lower=True)
         NUM = data.RawField()
         SEN_VEC = data.RawField(postprocessing=self.sen_vec_postprocess)
         SEN_IDX = data.RawField(postprocessing=self.sen_idx_postprocess)
         # need to do this so we dont get errors about having too big of a file in a single cell of a csv
         csv.field_size_limit(500 * 1024 * 1024)
-        self.train_data, = data.TabularDataset.splits( path='',train=self.data_dir, format='csv', 
+        self.train_data, self.test_data = data.TabularDataset.splits( path='',train=self.data_dir, test = self.test_data_dir, format='csv', 
                                             skip_header = True, fields=[('query_num', NUM),
                                                                         ('title', TEXT),
                                                                         ('raw_query', TEXT),
@@ -35,9 +37,18 @@ class Dataset(object):
                                                                         ('story', TEXT),
                                                                         ('sen_vec', SEN_VEC),
                                                                         ('sen_idx', SEN_IDX)])
-        with open(self.processed_data, 'wb') as f:
-            dill.dump(list(self.train_data), f)
-            #f.write('hi')
+        self.vocab = TEXT.build_vocab(self.train_data, vectors="glove.6B.100d", max_size=self.max_vocab_size)
+        
+    def get_batch_iterator(self, is_train=True):
+        data = self.train_data if is_train  else  self.test_data
+        
+        dataset_iter = data.BucketIterator(data, batch_size=self.batch_size, device=-1*int(not self.cuda), 
+                                           sort_key=lambda x: len(x.story), train=is_train, shuffle=shuffle, repeat=repeat, sort= not is_train)
+        
+        dataset_iter.create_batches()
+        
+        return dataset_iter
+    
     '''
     @args:
         batch: a list of strings (lenght batch_size) where each string is a document 
