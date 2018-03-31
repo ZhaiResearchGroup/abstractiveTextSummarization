@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import optim
 from torch.autograd import Variable
 from ..utils.dataset import parse_batch
 
@@ -14,6 +15,11 @@ class Seq2Seq(nn.Module):
         self.encoder = encoder
         self.decoder = decoder
         self.opt = opt
+        
+        if hasattr(opt, 'decoder_learning_ratio'):
+            self.decoder_learning_ratio = opt.decoder_learning_ratio
+        else:
+             self.decoder_learning_ratio = 5.0   
         
         # Share the embedding matrix - preprocess with share_vocab required.
         if opt.share_embeddings:
@@ -93,7 +99,9 @@ class Seq2Seq(nn.Module):
         if regression:
             self.decoder_outputs = self.decoder_outputs.view_as(tgt_seqs)
         return self.decoder_outputs
-
+    
+    def get_parameters(self):
+        return [(self.encoder.parameters(), 1), (self.decoder.parameters(), self.decoder_learning_ratio)]
 
     def translate(self, inputs):
         src_seqs, src_lens = inputs[0]
