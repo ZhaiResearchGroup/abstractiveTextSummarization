@@ -6,7 +6,8 @@ import csv
 import os
 import pickle
 import dill
-from sent2vec import Sent2vec
+from utils.sent2vec import Sent2vec
+import config.constants
 
 class Dataloader(object):
     def __init__(self, opt):
@@ -14,7 +15,7 @@ class Dataloader(object):
        #self.batch_size = opt.batch_size
         self.train_data = None 
         self.test_data = None
-        self.sos_token = opt.sos
+        #self.sos_token = opt.sos
         self.data_dir = opt.traindata
         self.test_data_dir = opt.testdata
         self.vocab =  None
@@ -66,7 +67,7 @@ class Dataloader(object):
     def sen_vec_postprocess(batch):
 
         # split at <sos> tokens
-        tokenized_batch = [[self.sos_token + sen for sen in example.split(self.sos_token)][1:] for example in batch]
+        tokenized_batch = [[SOS_TOKEN + sen for sen in example.split(SOS_TOKEN)][1:] for example in batch]
         # tokenized batch is now a list[list[sentences]]
 
         # maximum length of any document (in number of sentences)
@@ -77,7 +78,7 @@ class Dataloader(object):
         for i, example in enumerate(tokenized_batch):
             # length of this example tells us how much we need to leave as padding on the end
             for j in range(len(example)):
-                batch_vec[i,:] = np.array(sent2vec.infer_vector(example[j]))
+                batch_vec[i,:] = np.array(sent2vec.infer_vector(tokenized_batch))
 
         # return as cuda var
         tensor = torch.FloatTensor(batch_vec)
@@ -124,9 +125,3 @@ class Dataloader(object):
             return torch.autograd.Variable(torch.LongTensor(sen_idxs).cuda())
         else:
             return torch.autograd.Variable(torch.LongTensor(sen_idxs))
-
-if __name__ == '__main__':
-    dataset = Dataset()  # Default values are good
-    pdb.set_trace()
-    
-        

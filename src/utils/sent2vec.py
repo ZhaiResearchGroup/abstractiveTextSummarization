@@ -143,27 +143,34 @@ class Sent2vec():
     def __init__(self, opt, eval):
         self.cuda = opt.cuda
         self.train_data = None
-         
+        # not finished
 
-    def train
+    def train(self, batch):
+        pass
+        # not finished
+
+    def infer_vector(self, tokenized_batch):
+        return np.zeros((1,1))
+        # not finished (obviously)
+
 if __name__ == "__main__":
-parser = argparse.ArgumentParser(description='train.py')
-## Data options
-parser.add_argument('-traindata', default='dataset/wiki_short.csv', help='Path to train data file')
-parser.add_argument("-testdata", default='dataset/wiki_short.csv',help="Path to the test data file")
-parser.add_argument("-processeddata", default='dataset/data.pkl',help="Path to the pre-processed data set")
-parser.add_argument("-sos",default="<sos>",help='Adding EOS token at the end of each sequence')
+    parser = argparse.ArgumentParser(description='train.py')
+    ## Data options
+    parser.add_argument('-traindata', default='dataset/wiki_short.csv', help='Path to train data file')
+    parser.add_argument("-testdata", default='dataset/wiki_short.csv',help="Path to the test data file")
+    parser.add_argument("-processeddata", default='dataset/data.pkl',help="Path to the pre-processed data set")
+    parser.add_argument("-sos",default="<sos>",help='Adding EOS token at the end of each sequence')
 
-parser.add_argument('-save_dir',default='saving', help='Directory to save model checkpoints')
-parser.add_argument('-load_from', type=str, help='Path to a model checkpoint')
-parser.add_argument("-vocab_size", type=int, default=None, help="Limit vocabulary")
-parser.add_argument('-batch_size', type=int, default=32, help='Batch Size for seq2seq model')
+    parser.add_argument('-save_dir',default='saving', help='Directory to save model checkpoints')
+    parser.add_argument('-load_from', type=str, help='Path to a model checkpoint')
+    parser.add_argument("-vocab_size", type=int, default=None, help="Limit vocabulary")
+    parser.add_argument('-batch_size', type=int, default=32, help='Batch Size for seq2seq model')
 
-parser.add_argument('-gpu', type=int, default=-1,help='GPU id. Support single GPU only')
+    parser.add_argument('-gpu', type=int, default=-1,help='GPU id. Support single GPU only')
 
-opt = parser.parse_args()
-opt.cuda = (opt.gpu != -1)
-           
+    opt = parser.parse_args()
+    opt.cuda = (opt.gpu != -1)
+               
     data = Dataloader(opt, False)
 
     # set up encoder and decoder
@@ -176,9 +183,9 @@ opt.cuda = (opt.gpu != -1)
     decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
     criterion = nn.MSELoss()
 
-# run training iterations
+    # run training iterations
 
-batch = ['the curtain lifts to a hushed crowd',
-         'all the world is a stage',
-         'and each man must play his own part']
-train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion)
+    batch = ['the curtain lifts to a hushed crowd',
+             'all the world is a stage',
+             'and each man must play his own part']
+    train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion)
