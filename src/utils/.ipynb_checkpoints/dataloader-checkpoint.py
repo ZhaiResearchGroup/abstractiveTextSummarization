@@ -7,7 +7,7 @@ import os
 import pickle
 import dill
 
-class Dataset(object):
+class Dataloader(object):
     def __init__(self, opt, eval):
         self.cuda = opt.cuda
        #self.batch_size = opt.batch_size
@@ -39,7 +39,7 @@ class Dataset(object):
                                                                         ('sen_idx', SEN_IDX)])
         self.vocab = TEXT.build_vocab(self.train_data, vectors="glove.6B.100d", max_size=self.max_vocab_size)
         
-    def get_batch_iterator(is_train=True):
+    def get_batch_iterator(self, is_train=True):
         data = self.train_data if is_train  else  self.test_data
         
         dataset_iter = data.BucketIterator(data, batch_size=self.batch_size, device=-1*int(not self.cuda), 
@@ -48,7 +48,7 @@ class Dataset(object):
         dataset_iter.create_batches()
         
         return dataset_iter
-
+    
     '''
     @args:
         batch: a list of strings (lenght batch_size) where each string is a document 
