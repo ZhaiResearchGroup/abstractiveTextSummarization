@@ -6,6 +6,7 @@ import csv
 import os
 import pickle
 import dill
+from sent2vec import Sent2vec
 
 class Dataloader(object):
     def __init__(self, opt, eval):
@@ -39,11 +40,14 @@ class Dataloader(object):
                                                                         ('sen_idx', SEN_IDX)])
         self.vocab = TEXT.build_vocab(self.train_data, vectors="glove.6B.100d", max_size=self.max_vocab_size)
         
-    def get_batch_iterator(self, is_train=True):
-        data = self.train_data if is_train  else  self.test_data
+    def get_batch_iterator(self, is_train=True, shuffle=True, repeat=False):
+        dataset = self.train_data if is_train  else  self.test_data
         
-        dataset_iter = data.BucketIterator(data, batch_size=self.batch_size, device=-1*int(not self.cuda), 
-                                           sort_key=lambda x: len(x.story), train=is_train, shuffle=shuffle, repeat=repeat, sort= not is_train)
+        dataset_iter = data.BucketIterator(dataset, batch_size=self.batch_size,
+                                           device=-1*int(not self.cuda),
+                                           sort_key=lambda x: len(x.story),
+                                           train=is_train, shuffle=shuffle,
+                                           repeat=repeat, sort=(not is_train))
         
         dataset_iter.create_batches()
         
