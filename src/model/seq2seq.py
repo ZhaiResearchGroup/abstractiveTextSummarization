@@ -20,40 +20,31 @@ class Seq2Seq(nn.Module):
             self.encoder.embedding.weight = self.decoder.embedding.weight
 
 
-    def _initialize_forward(self, inputs, eval):
-        src_seqs, src_lens = inputs[0]
-        tgt_seqs, tgt_lens = inputs[1]
+    def _initialize_forward(self, input_batch, eval):
 
-        batch_size = src_seqs.size(1)
-        assert(batch_size == tgt_seqs.size(1))
-        # Pack tensors to variables for neural network inputs (in order to autograd)
-        #src_seqs = Variable(src_seqs)
-        #tgt_seqs = Variable(tgt_seqs)
+        # batch_size = src_seqs.size(1)
 
         # Decoder's input
-        input_seq = Variable(torch.LongTensor([lib.Constants.BOS] * batch_size),volatile=eval)
+        init_decoder_input_seq = Variable(torch.LongTensor([lib.Constants.BOS] * batch_size),volatile=eval)
 
-        # Decoder's output sequence length = max target sequence length of current batch
-        max_tgt_len = tgt_seqs.size()[0]#tgt_lens.data.max()
-
-        # Store all decoder's outputs.
+        # Var to Store all decoder's outputs.
         # **CRUTIAL**
         # Don't set:
         # >> decoder_outputs = Variable(torch.zeros(max_tgt_len, batch_size, decoder.vocab_size))
         # Varying tensor size could cause GPU allocate a new memory causing OOM,
         # so we intialize tensor with fixed size instead:
         # opts.max_seq_len is a fixed number, unlike `max_tgt_len` always varys.
-        self.decoder_outputs = Variable(torch.zeros(self.opt.max_train_decode_len, batch_size, self.decoder.out_size))
+        decoder_outputs = Variable(torch.zeros(self.opt.max_train_decode_len, batch_size, self.decoder.out_size))
 
         # Move variables from CPU to GPU.
         if self.opt.cuda:
-            input_seq = input_seq.cuda()
-            self.decoder_outputs = self.decoder_outputs.cuda()
+            init_decoder_input_seq = init_decoder_input_seq.cuda()
+            decoder_outputs = decoder_outputs.cuda()
 
         # -------------------------------------
         # Forward encoder
         # -------------------------------------
-        encoder_outputs, encoder_hidden = self.encoder(src_seqs, src_lens.data.tolist())
+        encoder_outputs, encoder_hidden = self.encoder(input_batch)
 
         # -------------------------------------
         # Forward decoder
@@ -61,24 +52,25 @@ class Seq2Seq(nn.Module):
         # Initialize decoder's hidden state as encoder's last hidden state.
         decoder_hidden = encoder_hidden
 
-        return max_tgt_len, encoder_outputs, src_lens, tgt_lens, self.decoder_outputs, tgt_seqs, input_seq, decoder_hidden
+        return encoder_outputs, init_decoder_input_seq, decoder_outputs, decoder_hidden
 
-    def forward(self, inputs, eval=False, regression=False):
-        max_tgt_len, encoder_outputs, src_lens, tgt_lens, decoder_outputs, tgt_seqs, \
-        input_seq, decoder_hidden = self._initialize_forward(inputs, eval)
+
+    def forward(self, input_batch, max_input_length, tgt_batch, max_tgt_length, sen_vecs, sen_idxs, eval=False, regression=False):
+        
+        encoder_outputs, decoder_input, decoder_outputs, decoder_hidden = self._initialize_forward(input_batch, eval)
 
         if eval:
             use_teacher_forcing = False
         else:
-            use_teacher_forcing = random.random() < self.opt.teacher_forcing_ratio
+            use_teacher_forcing = (random.random() < self.opt.teacher_forcing_ratio)
             
         # Run through decoder one time step at a time.
         for t in range(max_tgt_len):
             # decoder returns:
             # - decoder_output   : (batch_size, vocab_size)
             # - decoder_hidden   : (num_layers, batch_size, hidden_size)
-            # - attention_weights: (batch_size, max_src_len)
-            decoder_output, decoder_hidden, attention_weights = self.decoder(input_seq, decoder_hidden,encoder_outputs, src_lens)
+            # - sen_attention_weights: (batch_size, num_sens)
+            decoder_output, decoder_hidden, sen_attention_weights = self.decoder(input_seq, decoder_hidden, encoder_outputs, sen_vecs,                                                                                      sen_idxs, sen_attention_weights)
 
             # Store decoder outputs.
             decoder_outputs[t] = decoder_output
@@ -86,7 +78,7 @@ class Seq2Seq(nn.Module):
             if use_teacher_forcing:
                 # Next input is current target
                 #print 'tf'
-                input_seq = tgt_seqs[t]
+                input_seq = tgt_batch[t]
             else:
                 #print 'not tf'
                 topv, topi = decoder_output.topk(1)
@@ -95,52 +87,13 @@ class Seq2Seq(nn.Module):
                 # print input
                 if self.opt.cuda:
                     input_seq = input_seq.cuda()
-            # print input_seq.size()
-            # Detach hidden state:
-            #self.detach_hidden(decoder_hidden)
-
+    
+        # why?  maybe to make sure it doesnt get deleted?
         self.decoder_outputs = decoder_outputs
         if regression:
             self.decoder_outputs = self.decoder_outputs.view_as(tgt_seqs)
         return self.decoder_outputs
 
-
-    def backward(self, outputs, tgt_seqs, mask, criterion, eval=False, regression=False, normalize=True):
-
-        max_tgt_len = tgt_seqs.size()[0] #tgt_seqs.size()[0]#tgt_lens.data.max()
-        # -------------------------------------
-        # Compute loss
-        # -------------------------------------
-        if regression:
-            logits = outputs
-            loss = criterion(logits, tgt_seqs, mask, normalize=normalize)
-            num_corrects = None
-        else:
-            logits = outputs[:max_tgt_len]
-            loss, num_corrects = criterion(logits, tgt_seqs, mask, normalize=normalize)
-
-            """logits_flat = logits.contiguous().view(-1, logits.size(-1))
-            targets_flat  = tgt_seqs.contiguous().view(-1,)
-            loss = criterion(logits_flat, targets_flat)
-            loss = loss.view(*tgt_seqs.size())
-        num_corrects = lib.metric.compute_numcorrects(logits, tgt_seqs, mask)
-        loss = loss * mask.float()
-        loss = loss.sum()
-        loss = loss / mask.float().sum() if normalize else loss"""
-        # -------------------------------------
-        # Backward and optimize
-        # -------------------------------------
-        # Backward to get gradients w.r.t parameters in model.
-        if(not eval):
-            loss.backward()
-
-        # Clip gradients
-        #encoder_grad_norm = nn.utils.clip_grad_norm(encoder.parameters(), opts.max_grad_norm)
-        #decoder_grad_norm = nn.utils.clip_grad_norm(decoder.parameters(), opts.max_grad_norm)
-        #clipped_encoder_grad_norm = compute_grad_norm(encoder.parameters())
-        #clipped_decoder_grad_norm = compute_grad_norm(decoder.parameters())
-
-        return loss.data[0], num_corrects
 
     def translate(self, inputs):
         src_seqs, src_lens = inputs[0]

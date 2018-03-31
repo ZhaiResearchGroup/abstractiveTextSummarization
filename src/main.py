@@ -17,6 +17,7 @@ parser.add_argument('-save_dir',default='saving', help='Directory to save model 
 parser.add_argument('-load_from', type=str, help='Path to a model checkpoint')
 parser.add_argument("-vocab_size", type=int, default=None, help="Limit vocabulary")
 parser.add_argument('-batch_size', type=int, default=32, help='Batch Size for seq2seq model')
+parser.add_argument('-teacher_forcing_ratio', type=float, default=0.6,help='Probablity of using teacher forcing (scheduled sampling)')
 
 parser.add_argument('-gpu', type=int, default=-1,help='GPU id. Support single GPU only')
 
