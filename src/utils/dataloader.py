@@ -1,3 +1,5 @@
+import sys
+sys.path.append("..")
 from torchtext.data import RawField
 from torchtext import data
 import torchtext.vocab as vocab
@@ -7,7 +9,11 @@ import os
 import pickle
 import dill
 from utils.sent2vec import Sent2vec
-import config.constants
+from config.constants import *
+import numpy as np
+import gensim
+import torch
+from torch import nn
 
 class Dataloader(object):
     def __init__(self, opt):
@@ -20,6 +26,7 @@ class Dataloader(object):
         self.vocab =  None
         self.max_vocab_size = opt.vocab_size
         self.batch_size = opt.batch_size
+        self.sent2vec = gensim.models.doc2vec.Doc2Vec.load("/Data/apnews_model/apnews_sen_model.model")
         
         self.load_data()
         
@@ -28,6 +35,7 @@ class Dataloader(object):
         NUM = data.RawField()
         SEN_VEC = data.RawField(postprocessing=self.sen_vec_postprocess)
         SEN_IDX = data.RawField(postprocessing=self.sen_idx_postprocess)
+        
         # need to do this so we dont get errors about having too big of a file in a single cell of a csv
         csv.field_size_limit(500 * 1024 * 1024)
         self.train_data, self.test_data = data.TabularDataset.splits( path='',train=self.data_dir, test = self.test_data_dir, format='csv', 
@@ -38,7 +46,10 @@ class Dataloader(object):
                                                                         ('story', TEXT),
                                                                         ('sen_vec', SEN_VEC),
                                                                         ('sen_idx', SEN_IDX)])
-        self.vocab = TEXT.build_vocab(self.train_data, vectors="glove.6B.100d", max_size=self.max_vocab_size)
+        
+        TEXT.build_vocab(self.train_data, vectors="glove.6B.100d", max_size=self.max_vocab_size)
+        
+        self.vocab = TEXT.vocab
         
     def get_batch_iterator(self, is_train=True, shuffle=True, repeat=False):
         dataset = self.train_data if is_train  else  self.test_data
@@ -62,8 +73,8 @@ class Dataloader(object):
                 This array is the sentences embeddings for each sentence 
                 in each document in the batch
     '''
-    @staticmethod
-    def sen_vec_postprocess(batch):
+    #@staticmethod
+    def sen_vec_postprocess(self, batch):
 
         # split at <sos> tokens
         tokenized_batch = [[SOS_TOKEN + sen for sen in example.split(SOS_TOKEN)][1:] for example in batch]
@@ -77,7 +88,7 @@ class Dataloader(object):
         for i, example in enumerate(tokenized_batch):
             # length of this example tells us how much we need to leave as padding on the end
             for j in range(len(example)):
-                batch_vec[i,:] = np.array(sent2vec.infer_vector(tokenized_batch))
+                batch_vec[i,:] = np.array(self.sent2vec.infer_vector(example[j]))
 
         # return as cuda var
         tensor = torch.FloatTensor(batch_vec)
@@ -95,8 +106,8 @@ class Dataloader(object):
                     This array is the sentences embeddings for each sentence 
                     in each document in the batch
     '''
-    @staticmethod
-    def sen_idx_postprocess(batch):
+    #@staticmethod
+    def sen_idx_postprocess(self, batch):
         # split at <sos> tokens
         sentences_batch = [[SOS_TOKEN + sen for sen in example.split(SOS_TOKEN)][1:] for example in batch]
         # tokenized batch is now a list[list[sentences]]

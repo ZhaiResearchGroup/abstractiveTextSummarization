@@ -1,5 +1,17 @@
+import sys
+sys.path.append("..")
+import random
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.autograd import Variable
+from model.attn import Attn
+from config.constants import *
+
+
 class BahdanauAttnDecoderRNN(nn.Module):
-    def __init__(self, hidden_size, output_size, n_layers=1, dropout_p=0.1):
+    def __init__(self, hidden_size, output_size, vocab_vectors, n_layers=1, dropout_p=0.1):
         super(BahdanauAttnDecoderRNN, self).__init__()
         
         # Define parameters
@@ -10,11 +22,11 @@ class BahdanauAttnDecoderRNN(nn.Module):
         
         # Define layers
         self.embedding = nn.Embedding(output_size, hidden_size)
-        self.embedding.weight.data.copy_(vocab.vectors)
+        self.embedding.weight.data.copy_(vocab_vectors)
 
         self.dropout = nn.Dropout(dropout_p)
         self.word_attn = Attn(hidden_size * 2, hidden_size)
-        self.sentence_attn = Attn(sentence_size + hidden_size, hidden_size) # set at start of notebook
+        self.sentence_attn = Attn(SENT_SIZE + hidden_size, hidden_size) # set at start of notebook
         self.gru = nn.GRU(hidden_size * 2, hidden_size, n_layers, dropout=dropout_p)
         self.out = nn.Linear(hidden_size * 2, output_size)
     

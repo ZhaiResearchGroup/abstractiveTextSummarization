@@ -6,6 +6,12 @@ import torch.nn as nn
 import numpy as np
 from torch import cuda
 from utils.dataloader import Dataloader
+from model.seq2seq import Seq2Seq
+from train.trainer import Trainer
+import os
+
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   # see issue #152
+os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
 
 ## Data options
@@ -21,11 +27,22 @@ parser.add_argument('-ldir', '--load_dir', default='loading', help='Path to a mo
 parser.add_argument('-vs', "--vocab_size", type=int, default=None, help="Limit vocabulary")
 parser.add_argument('-bs', '--batch_size', type=int, default=32, help='Batch Size for seq2seq model')
 parser.add_argument('-gpu', type=int, default=-1, help='GPU id. Support single GPU only')
-parser.add_argument('-ne', '--n_epochs', type=int, default=-1,help='GPU id. Support single GPU only')
+parser.add_argument('-ne', '--n_epochs', type=int, default=1,help='number of training epochs')
+parser.add_argument('-lr', '--learning_rate', type=float, default=.0001, help='learning rate')
 
 opt = parser.parse_args()
 
 opt.cuda = (opt.gpu != -1)
 
 dataloader = Dataloader(opt)
-print(type(dataloader.train_data))
+print ('Done loading data')
+
+model = Seq2Seq(opt, dataloader.vocab)
+print ('Done building model')
+
+trainer = Trainer(opt, dataloader, model)
+print ('Done creating trainer')
+
+trainer.train()
+
+

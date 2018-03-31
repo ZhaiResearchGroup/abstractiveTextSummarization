@@ -1,3 +1,5 @@
+import sys
+sys.path.append("..")
 import random
 import numpy as np
 import torch
@@ -5,15 +7,21 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import optim
 from torch.autograd import Variable
-from ..utils.dataset import parse_batch
+from utils.utils import parse_batch
+from model.encoder import EncoderRNN
+from model.decoder import BahdanauAttnDecoderRNN
+from config.constants import *
 
 class Seq2Seq(nn.Module):
-    def __init__(self,  opt):
+    def __init__(self,  opt, vocab):
         super(Seq2Seq, self).__init__()
         
+        self.word_size = len(vocab)
+        
         ## CHANGE THIS TO CREATE THE ENOCDER AND DECODER HERE ###
-        self.encoder = encoder
-        self.decoder = decoder
+        self.encoder = EncoderRNN(self.word_size, 100, vocab.vectors)
+        self.decoder = BahdanauAttnDecoderRNN(100, self.word_size, vocab.vectors)
+        self.vocab = vocab
         self.opt = opt
         
         if hasattr(opt, 'decoder_learning_ratio'):
@@ -21,17 +29,17 @@ class Seq2Seq(nn.Module):
         else:
              self.decoder_learning_ratio = 5.0   
         
-        # Share the embedding matrix - preprocess with share_vocab required.
-        if opt.share_embeddings:
-            self.encoder.embedding.weight = self.decoder.embedding.weight
+        # # Share the embedding matrix - preprocess with share_vocab required.
+        # if opt.share_embeddings:
+        #     self.encoder.embedding.weight = self.decoder.embedding.weight
 
 
-    def _initialize_forward(self, input_batch, eval):
+    def _initialize_forward(self, input_batch, max_tgt_len, sen_vecs, eval):
 
-        # batch_size = src_seqs.size(1)
+        batch_size = input_batch.size(1)
 
         # Decoder's input
-        init_decoder_input_seq = Variable(torch.LongTensor([lib.Constants.BOS] * batch_size),volatile=eval)
+        init_decoder_input_seq = Variable(torch.LongTensor([self.vocab.stoi[SOS_TOKEN]] * batch_size),volatile=eval)
 
         # Var to Store all decoder's outputs.
         # **CRUTIAL**
@@ -40,30 +48,36 @@ class Seq2Seq(nn.Module):
         # Varying tensor size could cause GPU allocate a new memory causing OOM,
         # so we intialize tensor with fixed size instead:
         # opts.max_seq_len is a fixed number, unlike `max_tgt_len` always varys.
-        decoder_outputs = Variable(torch.zeros(self.opt.max_train_decode_len, batch_size, self.decoder.out_size))
+        
+        # TODO find max tgt length (instead of 1000 or max_tgt_len)
+        decoder_outputs = Variable(torch.zeros(max_tgt_len, batch_size, self.word_size))
+        
+        sentence_attn_weights = Variable(torch.zeros(1, batch_size, sen_vecs.shape[0]))
 
         # Move variables from CPU to GPU.
         if self.opt.cuda:
             init_decoder_input_seq = init_decoder_input_seq.cuda()
             decoder_outputs = decoder_outputs.cuda()
+            sentence_attn_weights = sentence_attn_weights.cuda()
 
         # -------------------------------------
         # Forward encoder
         # -------------------------------------
         encoder_outputs, encoder_hidden = self.encoder(input_batch)
 
+        
         # -------------------------------------
         # Forward decoder
         # -------------------------------------
         # Initialize decoder's hidden state as encoder's last hidden state.
-        decoder_hidden = encoder_hidden
-
-        return encoder_outputs, init_decoder_input_seq, decoder_outputs, decoder_hidden
-
-
-    def forward(self, input_batch, max_input_length, tgt_batch, max_tgt_length, sen_vecs, sen_idxs, eval=False, regression=False):
+        decoder_hidden = encoder_hidden[:self.decoder.n_layers]
         
-        encoder_outputs, decoder_input, decoder_outputs, decoder_hidden = self._initialize_forward(input_batch, eval)
+        return encoder_outputs, init_decoder_input_seq, decoder_outputs, decoder_hidden, sentence_attn_weights
+
+
+    def forward(self, input_batch, max_input_length, tgt_batch, max_tgt_len, sen_vecs, sen_idxs, eval=False, regression=False):
+        
+        encoder_outputs, decoder_input, decoder_outputs, decoder_hidden, sen_attention_weights = self._initialize_forward(input_batch, max_tgt_len, sen_vecs, eval)
 
         if eval:
             use_teacher_forcing = False
@@ -76,7 +90,7 @@ class Seq2Seq(nn.Module):
             # - decoder_output   : (batch_size, vocab_size)
             # - decoder_hidden   : (num_layers, batch_size, hidden_size)
             # - sen_attention_weights: (batch_size, num_sens)
-            decoder_output, decoder_hidden, sen_attention_weights = self.decoder(input_seq, decoder_hidden, encoder_outputs, sen_vecs,                                                                                      sen_idxs, sen_attention_weights)
+            decoder_output, decoder_hidden, sen_attention_weights = self.decoder(decoder_input, decoder_hidden, encoder_outputs, sen_vecs, sen_idxs, sen_attention_weights)
 
             # Store decoder outputs.
             decoder_outputs[t] = decoder_output
@@ -84,20 +98,20 @@ class Seq2Seq(nn.Module):
             if use_teacher_forcing:
                 # Next input is current target
                 #print 'tf'
-                input_seq = tgt_batch[t]
+                decoder_input = tgt_batch[t]
             else:
                 #print 'not tf'
                 topv, topi = decoder_output.topk(1)
-                input_seq = topi.squeeze()
+                decoder_input = topi.squeeze()
                 # print(type (input_seq.detach()))
                 # print input
                 if self.opt.cuda:
-                    input_seq = input_seq.cuda()
+                    decoder_input = decoder_input.cuda()
     
         # why?  maybe to make sure it doesnt get deleted?
         self.decoder_outputs = decoder_outputs
         if regression:
-            self.decoder_outputs = self.decoder_outputs.view_as(tgt_seqs)
+            self.decoder_outputs = self.decoder_outputs.view_as(tgt_batch)
         return self.decoder_outputs
     
     def get_parameters(self):
