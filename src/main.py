@@ -8,7 +8,6 @@ from torch import cuda
 from utils.dataloader import Dataloader
 from model.seq2seq import Seq2Seq
 from train.trainer import Trainer
-import os
 
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   # see issue #152
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
@@ -18,8 +17,8 @@ os.environ["CUDA_VISIBLE_DEVICES"]="0"
 parser = argparse.ArgumentParser(description='train.py')
 
 parser.add_argument('-teacher_forcing_ratio', type=float, default=0.6,help='Probablity of using teacher forcing (scheduled sampling)')
-parser.add_argument('-trnd', '--traindata', default='dataset/wiki_short.csv', help='Path to train data file')
-parser.add_argument('-tstd', '--testdata', default='dataset/wiki_short.csv', help="Path to the test data file")
+parser.add_argument('-trnd', '--traindata', default='../data/wiki_queries12_head.csv', help='Path to train data file')
+parser.add_argument('-tstd', '--testdata', default='../data/wiki_queries12_head.csv', help="Path to the test data file")
 parser.add_argument('-pd', '--processeddata', default='dataset/data.pkl', help="Path to the pre-processed data set")
 parser.add_argument('-sos', '--sos_token', default="<sos>", help='Adding EOS token at the end of each sequence')
 parser.add_argument('-sdir', '--save_dir', default='saving', help='Directory to save model checkpoints')

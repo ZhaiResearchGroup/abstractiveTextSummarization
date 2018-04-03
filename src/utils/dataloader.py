@@ -26,7 +26,8 @@ class Dataloader(object):
         self.vocab =  None
         self.max_vocab_size = opt.vocab_size
         self.batch_size = opt.batch_size
-        self.sent2vec = gensim.models.doc2vec.Doc2Vec.load("/Data/apnews_model/apnews_sen_model.model")
+        self.sent2vec = Sent2vec(opt)
+        #self.sent2vec = gensim.models.doc2vec.Doc2Vec.load("/Data/apnews_model/apnews_sen_model.model")
         
         self.load_data()
         
@@ -87,8 +88,7 @@ class Dataloader(object):
 
         for i, example in enumerate(tokenized_batch):
             # length of this example tells us how much we need to leave as padding on the end
-            for j in range(len(example)):
-                batch_vec[i,:] = np.array(self.sent2vec.infer_vector(example[j]))
+            batch_vec[i,:len(example),:] = self.sent2vec.infer_vector(example)
 
         # return as cuda var
         tensor = torch.FloatTensor(batch_vec)
