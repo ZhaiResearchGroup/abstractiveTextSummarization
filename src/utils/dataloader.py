@@ -39,15 +39,13 @@ class Dataloader(object):
         
         # need to do this so we dont get errors about having too big of a file in a single cell of a csv
         csv.field_size_limit(500 * 1024 * 1024)
-        self.train_data, self.test_data = data.TabularDataset.splits( path='',train=self.data_dir, test = self.test_data_dir, format='csv', 
-                                            skip_header = True, fields=[('query_num', NUM),
+        self.train_data, self.test_data = data.TabularDataset.splits( path='',train = self.data_dir, 
+            test = self.test_data_dir, format='csv', skip_header = True, fields=[('query_num', NUM),
                                                                         ('title', TEXT),
                                                                         ('raw_query', TEXT),
                                                                         ('score', NUM),
                                                                         ('sum', TEXT),
-                                                                        ('story', TEXT),
-                                                                        ('sen_vec', SEN_VEC),
-                                                                        ('sen_idx', SEN_IDX)])
+                                                                        ('story', TEXT)])
         
         TEXT.build_vocab(self.train_data, vectors="glove.6B.100d", max_size=self.max_vocab_size)
         
@@ -63,8 +61,12 @@ class Dataloader(object):
                                            repeat=repeat, sort=(not is_train))
         
         dataset_iter.create_batches()
-        
-        print(dataset_iter)
+        # print( dir(dataset_iter.dataset.examples[0]))
+        # for attr in dir(dataset_iter.dataset.examples[0]):
+        #     print(attr, getattr(dataset_iter.dataset.examples[0], attr))
+        # #dataset_iter.dataset.examples[0].sen_vec
+        # print(dataset_iter.__dict__)
+        # print(dataset_iter)
         return dataset_iter
     
     '''
@@ -86,12 +88,14 @@ class Dataloader(object):
         # maximum length of any document (in number of sentences)
         max_doc_len = np.max(np.array([len(ex) for ex in tokenized_batch]))
 
+        print(batch)
         batch_vec = np.zeros((len(batch), max_doc_len+1, 100))
 
         for i, example in enumerate(tokenized_batch):
             # length of this example tells us how much we need to leave as padding on the end
             batch_vec[i,:len(example),:] = self.sent2vec.infer_vector(example)
-
+        
+        print(batch_vec.shape)
         # return as cuda var
         tensor = torch.FloatTensor(batch_vec)
         if self.cuda:

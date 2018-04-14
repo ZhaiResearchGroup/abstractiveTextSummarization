@@ -107,16 +107,18 @@ class Sent2vec(object):
             self.dec_optim = optim.Adam(self.decoder.parameters(), lr=learning_rate)
             self.criterion = nn.MSELoss()
 
-    def train(self, batch):
-        input_var = Variable(torch.FloatTensor(batch))
-        target_var = Variable(torch.FloatTensor(batch))
-        if USE_CUDA:
-            input_var = input_var.cuda()
-            target_var = target_var.cuda()
+    def train(self, input_var):
+        #print(batch)
+        # input_var = Variable(torch.FloatTensor(batch))
+        # target_var = Variable(torch.FloatTensor(batch))
+        # if USE_CUDA:
+        #     input_var = input_var.cuda()
+        #     target_var = target_var.cuda()
+        print(input_var.size())
         latent, indices = self.encoder(input_var)
         reconst = self.decoder(latent, indices)
         # compute and propagate loss gradient
-        loss = self.criterion(reconst, target_var)
+        loss = self.criterion(reconst, input_var)
         loss.backward()
         self.enc_optim.step()
         self.dec_optim.step()
@@ -128,7 +130,9 @@ class Sent2vec(object):
         torch.save(self.decoder, self.dec_path)
 
     def infer_vector(self, batch):
+        #print(batch)
         sent_matrix = self.__glove_encode(batch, word_dim, input_length)
+        #print(sent_matrix.shape)
         input_var = Variable(torch.FloatTensor(sent_matrix))
         if USE_CUDA:
             input_var = input_var.cuda() 
