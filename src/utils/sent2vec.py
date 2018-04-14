@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 from torch import optim
+from config.constants import *
 import torch.nn.functional as F
 import torchtext.vocab as vocab
 import numpy as np
@@ -86,8 +87,8 @@ class senDecoder(nn.Module):
 class Sent2vec(object):
     def __init__(self, opt):
         self.glove = vocab.GloVe(name='6B', dim=100)
-        self.glove.itos.append(opt.sos)
-        self.glove.stoi[opt.sos]=vocab_size
+        self.glove.itos.append(SOS_TOKEN)
+        self.glove.stoi[SOS_TOKEN]=vocab_size
         self.glove.vectors = torch.cat([self.glove.vectors, torch.zeros(1, word_dim)], 0)
         print('Loaded {} words'.format(len(self.glove.itos)))
         self.enc_path = os.path.join(opt.load_dir, 'enc_model.sav')
@@ -128,7 +129,9 @@ class Sent2vec(object):
         torch.save(self.decoder, self.dec_path)
 
     def infer_vector(self, batch):
+        print(batch)
         sent_matrix = self.__glove_encode(batch, word_dim, input_length)
+        print('sent_matrix: ', sent_matrix.shape)
         input_var = Variable(torch.FloatTensor(sent_matrix))
         if USE_CUDA:
             input_var = input_var.cuda() 

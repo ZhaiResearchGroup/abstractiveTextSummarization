@@ -82,16 +82,22 @@ class Dataloader(object):
     #@staticmethod
     def sen_vec_postprocess(self, batch):
 
+        print('sen_vec_postprocess ONE started')
         # split at <sos> tokens
+        print(batch)
         tokenized_batch = [[SOS_TOKEN + sen for sen in example.split(SOS_TOKEN)][1:] for example in batch]
+        print(tokenized_batch)
         # tokenized batch is now a list[list[sentences]]
 
         # maximum length of any document (in number of sentences)
         max_doc_len = np.max(np.array([len(ex) for ex in tokenized_batch]))
+        print('max doc len: ', max_doc_len)
 
         batch_vec = np.zeros((len(batch), max_doc_len+1, 100))
+        print('batch_vec size: ', batch_vec.shape)
 
         for i, example in enumerate(tokenized_batch):
+            print(example)
             # length of this example tells us how much we need to leave as padding on the end
             batch_vec[i,:len(example),:] = self.sent2vec.infer_vector(example)
 
@@ -105,20 +111,14 @@ class Dataloader(object):
 
         # split at <sos> tokens
         tokenized_batch = [[SOS_TOKEN + sen for sen in example.split(SOS_TOKEN)] for example in batch]
-        #print (tokenized_batch)
         # tokenized batch is now a list[list[sentences]]
 
         # maximum length of any document (in number of sentences)
         max_doc_len = np.max(np.array([len(ex) for ex in tokenized_batch]))
 
         batch_vec = np.zeros((len(batch), 1, 100))
-        for i, example in enumerate(batch):
-            batch_vec[i,0,:] = np.array(self.sent2vec.infer_vector(example))
-
-        #for i, example in enumerate(tokenized_batch):
-            # length of this example tells us how much we need to leave as padding on the end
-         #   for j in range(len(example)):
-         #       batch_vec[i,:] = np.array(self.sent2vec.infer_vector(example[j]))
+        for i, example in enumerate(tokenized_batch):
+            batch_vec[i,0,:] = self.sent2vec.infer_vector(example)
 
         # return as cuda var
         tensor = torch.FloatTensor(batch_vec)
