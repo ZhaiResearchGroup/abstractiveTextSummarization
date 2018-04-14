@@ -32,8 +32,12 @@ class Dataloader(object):
         
     def load_data(self):
         TEXT = data.Field(sequential=True, lower=True)
+        SUM_TEXT = data.Field(sequential=True, lower=True, fix_length=100)
+        #TEXT = data.ReversibleField(sequential=True, lower=True, include_lengths=True)
+
         NUM = data.RawField()
         SEN_VEC = data.RawField(postprocessing=self.sen_vec_postprocess)
+        SEN_VEC2 = data.RawField(postprocessing=self.sen_vec_postprocess2)
         SEN_IDX = data.RawField(postprocessing=self.sen_idx_postprocess)
         
         # need to do this so we dont get errors about having too big of a file in a single cell of a csv
@@ -41,13 +45,14 @@ class Dataloader(object):
         self.train_data, self.test_data = data.TabularDataset.splits( path='',train=self.data_dir, test = self.test_data_dir, format='csv', 
                                             skip_header = True, fields=[('query_num', NUM),
                                                                         ('title', TEXT),
-                                                                        ('raw_query', TEXT),
-                                                                        ('sum', TEXT),
+                                                                        ('raw_query', SEN_VEC2),
+                                                                        ('sum', SUM_TEXT),
                                                                         ('story', TEXT),
                                                                         ('sen_vec', SEN_VEC),
                                                                         ('sen_idx', SEN_IDX)])
         
         TEXT.build_vocab(self.train_data, vectors="glove.6B.100d", max_size=self.max_vocab_size)
+        SUM_TEXT.build_vocab(self.train_data, vectors="glove.6B.100d", max_size=self.max_vocab_size)
         
         self.vocab = TEXT.vocab
         
@@ -66,7 +71,7 @@ class Dataloader(object):
     
     '''
     @args:
-        batch: a list of strings (lenght batch_size) where each string is a document 
+        batch: a list of strings (length batch_size) where each string is a document 
             to be converted to sen_vec representation
     @returns: 
         torch.Variable that is (batch_size x num_sens_in_doc x 100) 
@@ -89,6 +94,31 @@ class Dataloader(object):
             # length of this example tells us how much we need to leave as padding on the end
             for j in range(len(example)):
                 batch_vec[i,:] = np.array(self.sent2vec.infer_vector(example[j]))
+
+        # return as cuda var
+        tensor = torch.FloatTensor(batch_vec)
+        if self.cuda:
+            tensor = tensor.cuda()
+        return torch.autograd.Variable(tensor)
+    
+    def sen_vec_postprocess2(self, batch):
+
+        # split at <sos> tokens
+        tokenized_batch = [[SOS_TOKEN + sen for sen in example.split(SOS_TOKEN)] for example in batch]
+        #print (tokenized_batch)
+        # tokenized batch is now a list[list[sentences]]
+
+        # maximum length of any document (in number of sentences)
+        max_doc_len = np.max(np.array([len(ex) for ex in tokenized_batch]))
+
+        batch_vec = np.zeros((len(batch), 1, 100))
+        for i, example in enumerate(batch):
+            batch_vec[i,0,:] = np.array(self.sent2vec.infer_vector(example))
+
+        #for i, example in enumerate(tokenized_batch):
+            # length of this example tells us how much we need to leave as padding on the end
+         #   for j in range(len(example)):
+         #       batch_vec[i,:] = np.array(self.sent2vec.infer_vector(example[j]))
 
         # return as cuda var
         tensor = torch.FloatTensor(batch_vec)

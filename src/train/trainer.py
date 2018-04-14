@@ -8,6 +8,7 @@ from torch import optim
 import numpy as np
 from utils.criterion import masked_cross_entropy
 from config.constants import *
+import gc
 
 
 class Trainer(object):
@@ -29,6 +30,8 @@ class Trainer(object):
             self.clip = opt.clip
         else:
             self.clip = 50.0
+            
+        print ("Vocab Size:", len(self.loader.vocab))
     
     def train(self):
         # build optimizers using parameters and learning ratios from model
@@ -42,6 +45,9 @@ class Trainer(object):
         # loop over number of epochs
         for epoch in range(self.n_epochs):
             
+            print ('\nEpoch:', epoch)
+            counter = 0
+            
             # iterate over batches
             for batch in self.loader.get_batch_iterator(is_train=True):
                 # zero out optimizers
@@ -49,10 +55,10 @@ class Trainer(object):
                     optimizer.zero_grad()
                 
                 # parse batch
-                input_batch, max_input_length, tgt_batch, max_tgt_length, sen_vecs, sen_idxs = utils.parse_batch(batch, use_cuda=self.use_cuda)
+                input_batch, max_input_length, tgt_batch, max_tgt_length, sen_vecs, sen_idxs, query_batch = utils.parse_batch(batch, use_cuda=self.use_cuda)
                                 
                 # run forward pass over model
-                model_output = self.model(input_batch, max_input_length, tgt_batch, max_tgt_length, sen_vecs, sen_idxs)
+                model_output = self.model(input_batch, max_input_length, tgt_batch, max_tgt_length, sen_vecs, sen_idxs, query_batch)
                 
                 # get loss
                 loss = masked_cross_entropy(model_output.transpose(0, 1).contiguous(), # -> batch x seq
@@ -69,12 +75,15 @@ class Trainer(object):
                 
                 # Clip gradient norms
                 for i, parameters in enumerate(all_parameters):
-                    param_clips[i] += nn.utils.clip_grad_norm(parameters, self.clip).data[0]
+                    param_clips[i] += nn.utils.clip_grad_norm(parameters, self.clip)
                 
                 # update parameters
-                for optimizer in optimzers:
+                for optimizer in optimizers:
                     optimizer.step()
-                    
-                print ('loss:', loss.data[0])
+                
+                #gc.collect()
+                if counter % 1 == 0:
+                    print ('\tloss:', loss.data[0])
+                counter += 1
                     
                 

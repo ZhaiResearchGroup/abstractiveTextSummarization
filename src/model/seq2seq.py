@@ -11,6 +11,7 @@ from utils.utils import parse_batch
 from model.encoder import EncoderRNN
 from model.decoder import BahdanauAttnDecoderRNN
 from config.constants import *
+import gc
 
 class Seq2Seq(nn.Module):
     def __init__(self,  opt, vocab):
@@ -18,11 +19,21 @@ class Seq2Seq(nn.Module):
         
         self.word_size = len(vocab)
         
+        vocab_vectors = vocab.vectors
+        if opt.cuda:
+            vocab_vectors = vocab_vectors.cuda()
+        
         ## CHANGE THIS TO CREATE THE ENOCDER AND DECODER HERE ###
-        self.encoder = EncoderRNN(self.word_size, 100, vocab.vectors)
-        self.decoder = BahdanauAttnDecoderRNN(100, self.word_size, vocab.vectors)
+        self.encoder = EncoderRNN(self.word_size, 100, vocab_vectors)
+        self.query_encoder = EncoderRNN(self.word_size, 100, vocab_vectors)
+        self.decoder = BahdanauAttnDecoderRNN(100, self.word_size, vocab_vectors, 50)
         self.vocab = vocab
         self.opt = opt
+        
+        if opt.cuda:
+            self.encoder.cuda()
+            self.query_encoder.cuda()
+            self.decoder.cuda()
         
         if hasattr(opt, 'decoder_learning_ratio'):
             self.decoder_learning_ratio = opt.decoder_learning_ratio
@@ -35,7 +46,6 @@ class Seq2Seq(nn.Module):
 
 
     def _initialize_forward(self, input_batch, max_tgt_len, sen_vecs, eval):
-
         batch_size = input_batch.size(1)
 
         # Decoder's input
@@ -64,7 +74,6 @@ class Seq2Seq(nn.Module):
         # Forward encoder
         # -------------------------------------
         encoder_outputs, encoder_hidden = self.encoder(input_batch)
-
         
         # -------------------------------------
         # Forward decoder
@@ -75,22 +84,22 @@ class Seq2Seq(nn.Module):
         return encoder_outputs, init_decoder_input_seq, decoder_outputs, decoder_hidden, sentence_attn_weights
 
 
-    def forward(self, input_batch, max_input_length, tgt_batch, max_tgt_len, sen_vecs, sen_idxs, eval=False, regression=False):
-        
+    def forward(self, input_batch, max_input_length, tgt_batch, max_tgt_len, sen_vecs, sen_idxs, query_batch, eval=False, regression=False):        
         encoder_outputs, decoder_input, decoder_outputs, decoder_hidden, sen_attention_weights = self._initialize_forward(input_batch, max_tgt_len, sen_vecs, eval)
 
         if eval:
             use_teacher_forcing = False
         else:
             use_teacher_forcing = (random.random() < self.opt.teacher_forcing_ratio)
-            
+                                    
         # Run through decoder one time step at a time.
         for t in range(max_tgt_len):
+            # print ('\t', t)
             # decoder returns:
             # - decoder_output   : (batch_size, vocab_size)
             # - decoder_hidden   : (num_layers, batch_size, hidden_size)
             # - sen_attention_weights: (batch_size, num_sens)
-            decoder_output, decoder_hidden, sen_attention_weights = self.decoder(decoder_input, decoder_hidden, encoder_outputs, sen_vecs, sen_idxs, sen_attention_weights)
+            decoder_output, decoder_hidden, sen_attention_weights = self.decoder(decoder_input, decoder_hidden, encoder_outputs, sen_vecs, sen_idxs, sen_attention_weights, query_batch)
 
             # Store decoder outputs.
             decoder_outputs[t] = decoder_output
@@ -107,7 +116,35 @@ class Seq2Seq(nn.Module):
                 # print input
                 if self.opt.cuda:
                     decoder_input = decoder_input.cuda()
-    
+            '''if t % 20 == 0:
+                counts = dict()
+                for obj in gc.get_objects():
+                    try:
+                        if (torch.is_tensor(obj) and obj.is_cuda):
+                #             total += np.prod(list(obj.size()))
+                #             if type(obj).__name__ not in counts:
+                #                 counts[type(obj).__name__] = 0
+                #             counts[type(obj).__name__] += np.prod(list(obj.size()))
+                            if frozenset(obj.size()) not in counts:
+                                counts[frozenset(obj.size())] = 0
+                #             if hasattr(obj, 'test_name'):
+                #                 print ('YES')
+                            counts[frozenset(obj.size())] += 1
+                            #print(type(obj), obj.size(), obj.sum())
+                        if  (hasattr(obj, 'data') and obj.data.is_cuda):
+                #             total += np.prod(list(obj.size()))
+                #             if type(obj.data).__name__ not in counts:
+                #                 counts[type(obj.data).__name__] = 0
+                #             counts[type(obj.data).__name__] += np.prod(list(obj.size()))
+                            if frozenset(obj.data.size()) not in counts:
+                                counts[frozenset(obj.data.size())] = 0
+                            counts[frozenset(obj.data.size())] += 1
+                            #print(type(obj), obj.size(), type(obj.data), obj.data.sum())
+                    except:
+                        pass
+                for shape in counts:
+                    print (counts[shape], list(shape))
+                print ('\n\n')'''
         # why?  maybe to make sure it doesnt get deleted?
         self.decoder_outputs = decoder_outputs
         if regression:

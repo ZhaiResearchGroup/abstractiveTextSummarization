@@ -9,28 +9,32 @@ from utils.dataloader import Dataloader
 from model.seq2seq import Seq2Seq
 from train.trainer import Trainer
 import os
+import dill
 
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   # see issue #152
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
+torch.backends.cudnn.enabled = False
 
 
 ## Data options
 parser = argparse.ArgumentParser(description='train.py')
 
 parser.add_argument('-teacher_forcing_ratio', type=float, default=0.6,help='Probablity of using teacher forcing (scheduled sampling)')
-parser.add_argument('-trnd', '--traindata', default='dataset/wiki_short.csv', help='Path to train data file')
-parser.add_argument('-tstd', '--testdata', default='dataset/wiki_short.csv', help="Path to the test data file")
+parser.add_argument('-trnd', '--traindata', default='/Data/utiman/wiki_queries12.csv', help='Path to train data file')
+#parser.add_argument('-trnd', '--traindata', default='/Data/utiman/wiki_short.csv', help='Path to train data file')
+parser.add_argument('-tstd', '--testdata', default='/Data/utiman/wiki_short.csv', help="Path to the test data file")
 parser.add_argument('-pd', '--processeddata', default='dataset/data.pkl', help="Path to the pre-processed data set")
 parser.add_argument('-sos', '--sos_token', default="<sos>", help='Adding EOS token at the end of each sequence')
 parser.add_argument('-sdir', '--save_dir', default='saving', help='Directory to save model checkpoints')
 parser.add_argument('-ldir', '--load_dir', default='loading', help='Path to a model checkpoint')
-parser.add_argument('-vs', "--vocab_size", type=int, default=None, help="Limit vocabulary")
-parser.add_argument('-bs', '--batch_size', type=int, default=32, help='Batch Size for seq2seq model')
+parser.add_argument('-vs', "--vocab_size", type=int, default=3000, help="Limit vocabulary")
+parser.add_argument('-bs', '--batch_size', type=int, default=16, help='Batch Size for seq2seq model')
 parser.add_argument('-gpu', type=int, default=-1, help='GPU id. Support single GPU only')
-parser.add_argument('-ne', '--n_epochs', type=int, default=1,help='number of training epochs')
+parser.add_argument('-ne', '--n_epochs', type=int, default=50,help='number of training epochs')
 parser.add_argument('-lr', '--learning_rate', type=float, default=.0001, help='learning rate')
 
 opt = parser.parse_args()
+
+os.environ["CUDA_VISIBLE_DEVICES"]=str(opt.gpu)
 
 opt.cuda = (opt.gpu != -1)
 

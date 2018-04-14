@@ -32,6 +32,4 @@ class EncoderRNN(nn.Module):
         
         #hidden.detach_() ####
         # outputs are shape (batch_size, hidden_size)
-        print("hidden shape")
-        print(hidden.size())
         return outputs, hidden
