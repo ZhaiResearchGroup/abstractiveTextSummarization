@@ -8,8 +8,11 @@ from torch import cuda
 from utils.dataloader import Dataloader
 from model.seq2seq import Seq2Seq
 from train.trainer import Trainer
+<<<<<<< HEAD
 import os
 import dill
+=======
+>>>>>>> e1f7aa82796da12ae593383fd5ea7996b6e8a6d5
 
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   # see issue #152
 torch.backends.cudnn.enabled = False
