@@ -43,6 +43,7 @@ class Dataloader(object):
                                             skip_header = True, fields=[('query_num', NUM),
                                                                         ('title', TEXT),
                                                                         ('raw_query', TEXT),
+                                                                        ('score', NUM),
                                                                         ('sum', TEXT),
                                                                         ('story', TEXT),
                                                                         ('sen_vec', SEN_VEC),
@@ -63,6 +64,7 @@ class Dataloader(object):
         
         dataset_iter.create_batches()
         
+        print(dataset_iter)
         return dataset_iter
     
     '''
