@@ -6,6 +6,7 @@ import torch.nn.functional as F
 import torchtext.vocab as vocab
 import numpy as np
 import argparse
+from config.constants import *
 
 import os
 os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
@@ -71,10 +72,10 @@ class senDecoder(nn.Module):
         lat = self.latent_dim
         s2unpooled = self.s2unpool(latent[:,:lat[0],:],
                                    indices[:,:lat[0],:]).unsqueeze(3)
-        s3unpooled = self.s3unpool(latent[:,lat[0]:lat[1],:],
-                                   indices[:,lat[0]:lat[1],:]).unsqueeze(3)
-        s4unpooled = self.s4unpool(latent[:,lat[1]:,:],
-                                   indices[:,lat[1]:,:]).unsqueeze(3)
+        s3unpooled = self.s3unpool(latent[:,lat[0]:lat[0]+lat[1],:],
+                                   indices[:,lat[0]:lat[0]+lat[1],:]).unsqueeze(3)
+        s4unpooled = self.s4unpool(latent[:,lat[0]+lat[1]:,:],
+                                   indices[:,lat[0]+lat[1]:,:]).unsqueeze(3)
 
         s2reconst = self.s2deconv(s2unpooled)
         s3reconst = self.s3deconv(s3unpooled)
@@ -107,14 +108,17 @@ class Sent2vec(object):
             self.dec_optim = optim.Adam(self.decoder.parameters(), lr=learning_rate)
             self.criterion = nn.MSELoss()
 
-    def train(self, input_var):
-        #print(batch)
-        # input_var = Variable(torch.FloatTensor(batch))
-        # target_var = Variable(torch.FloatTensor(batch))
-        # if USE_CUDA:
-        #     input_var = input_var.cuda()
-        #     target_var = target_var.cuda()
-        print(input_var.size())
+    # train using a list of lists of sentences
+    def train(self, batch):
+        sentences_batch = [[SOS_TOKEN + sen for sen in example.split(SOS_TOKEN)][1:] for example in batch]
+
+        input_mat = []
+        for sentence in sentences_batch:
+            sent_matrix = self.__glove_encode(sentence, word_dim, input_length)
+            input_mat.append(sent_matrix)
+        input_var = Variable(torch.FloatTensor(np.vstack(input_mat)))
+        if USE_CUDA:
+            input_var = input_var.cuda()
         latent, indices = self.encoder(input_var)
         reconst = self.decoder(latent, indices)
         # compute and propagate loss gradient
@@ -130,9 +134,7 @@ class Sent2vec(object):
         torch.save(self.decoder, self.dec_path)
 
     def infer_vector(self, batch):
-        #print(batch)
         sent_matrix = self.__glove_encode(batch, word_dim, input_length)
-        #print(sent_matrix.shape)
         input_var = Variable(torch.FloatTensor(sent_matrix))
         if USE_CUDA:
             input_var = input_var.cuda() 
@@ -153,29 +155,3 @@ class Sent2vec(object):
                     sent_mat[w_idx] = np.zeros(word_dim)
             batch_vectors[sent_idx,:sent_lengths[sent_idx]] = sent_mat[:input_length]
         return batch_vectors
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='train.py')
-    ## Data options
-    parser.add_argument('-trnd', '--traindata', default='../../data/wiki_queries12_head.csv', help='Path to train data file')
-    parser.add_argument('-tstd', '--testdata', default='../../data/wiki_queries12_head.csv', help="Path to the test data file")
-    parser.add_argument("-processeddata", default='dataset/data.pkl',help="Path to the pre-processed data set")
-    parser.add_argument("-sos",default="<sos>",help='Adding EOS token at the end of each sequence')
-    parser.add_argument('-sdir', '--save_dir', default='saving', help='Directory to save model checkpoints')
-    parser.add_argument('-ldir', '--load_dir', default='loading', help='Path to a model checkpoint')
-    parser.add_argument("-vocab_size", type=int, default=None, help="Limit vocabulary")
-    parser.add_argument('-batch_size', type=int, default=32, help='Batch Size for seq2seq model')
-
-    parser.add_argument('-gpu', type=int, default=-1,help='GPU id. Support single GPU only')
-
-    opt = parser.parse_args()
-    opt.cuda = (opt.gpu != -1)
-    opt.train_ae = True
-
-    s2v = Sent2vec(opt)
-    from dataloader import Dataloader
-    data = Dataloader(opt)
-    b_iter = dataloader.get_batch_iterator()
-    for batch in b_iter:
-        s2v.train(batch)

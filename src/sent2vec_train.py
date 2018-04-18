@@ -26,10 +26,5 @@ if __name__ == "__main__":
     data = Dataloader(opt)
     b_iter = data.get_batch_iterator()
 
-    i = 0
     for batch in b_iter:
-        print('batch{}'.format(i), batch.story.size())
-        i+=1
-        #print(type(batch.story))
-        #assert False
         s2v.train(batch.story)

@@ -45,7 +45,7 @@ class Dataloader(object):
                                                                         ('raw_query', TEXT),
                                                                         ('score', NUM),
                                                                         ('sum', TEXT),
-                                                                        ('story', TEXT)])
+                                                                        ('story', NUM)])
         
         TEXT.build_vocab(self.train_data, vectors="glove.6B.100d", max_size=self.max_vocab_size)
         
