@@ -86,13 +86,14 @@ class senDecoder(nn.Module):
 
 class Sent2vec(object):
     def __init__(self, opt):
+        self.opt = opt
         self.glove = vocab.GloVe(name='6B', dim=100)
-        self.glove.itos.append(opt.sos)
-        self.glove.stoi[opt.sos]=vocab_size
+        self.glove.itos.append(self.opt.sos)
+        self.glove.stoi[self.opt.sos]=vocab_size
         self.glove.vectors = torch.cat([self.glove.vectors, torch.zeros(1, word_dim)], 0)
         print('Loaded {} words'.format(len(self.glove.itos)))
-        self.enc_path = os.path.join(opt.load_dir, 'enc_model.sav')
-        self.dec_path = os.path.join(opt.load_dir, 'dec_model.sav')
+        self.enc_path = os.path.join(self.opt.load_dir, 'enc_model.sav')
+        self.dec_path = os.path.join(self.opt.load_dir, 'dec_model.sav')
         if os.path.isfile(self.enc_path) and os.path.isfile(self.dec_path):
             self.encoder = torch.load(self.enc_path)
             self.decoder = torch.load(self.dec_path)
@@ -128,8 +129,8 @@ class Sent2vec(object):
         self.dec_optim.step()
 
     def save(self):
-        self.enc_path = os.path.join(opt.load_dir, 'enc_model.sav')
-        self.dec_path = os.path.join(opt.load_dir, 'dec_model.sav')
+        self.enc_path = os.path.join(self.opt.load_dir, 'enc_model.sav')
+        self.dec_path = os.path.join(self.opt.load_dir, 'dec_model.sav')
         torch.save(self.encoder, self.enc_path)
         torch.save(self.decoder, self.dec_path)
 

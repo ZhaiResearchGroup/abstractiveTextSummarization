@@ -26,5 +26,9 @@ if __name__ == "__main__":
     data = Dataloader(opt)
     b_iter = data.get_batch_iterator()
 
-    for batch in b_iter:
-        s2v.train(batch.story)
+    try:
+        for batch in b_iter:
+            s2v.train(batch.story)
+        s2v.save()
+    except KeyboardInterrupt:
+        s2v.save()
